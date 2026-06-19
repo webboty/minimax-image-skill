@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Local output
+gen/
+out/
+*.jpeg
+!examples/*.jpeg
+
+# Secrets
+.env
+.env.local
+key
+*.key
+
+# Test artifacts
+/tmp/_minimax_*
