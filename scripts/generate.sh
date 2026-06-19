@@ -5,9 +5,12 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib_env.sh
+source "$SCRIPT_DIR/lib_env.sh"
+
 API_ENDPOINT="${MINIMAX_API_ENDPOINT:-https://api.minimax.io/v1/image_generation}"
 API_MODEL="${MINIMAX_IMAGE_MODEL:-image-01}"
-KEY_FILE="${MINIMAX_KEY_FILE:-$HOME/.config/minimax-image/key}"
 
 # ---------- helpers ----------
 die() { echo "error: $*" >&2; exit 1; }
@@ -42,17 +45,13 @@ require_cmd() {
 }
 
 resolve_api_key() {
-  if [[ -n "${MINIMAX_API_KEY:-}" ]]; then
+  if ensure_api_key; then
     return 0
   fi
-  if [[ -f "$KEY_FILE" ]]; then
-    MINIMAX_API_KEY="$(<"$KEY_FILE")"
-    export MINIMAX_API_KEY
-    return 0
-  fi
-  die "MINIMAX_API_KEY not set and no key file at $KEY_FILE
-  → set: export MINIMAX_API_KEY=eyJ...
-  → or:  echo 'eyJ...' > $KEY_FILE && chmod 600 $KEY_FILE"
+  die "MINIMAX_API_KEY not found. Set one of:
+  → env:    export MINIMAX_API_KEY=eyJ...
+  → .env:   create ./.env with: MINIMAX_API_KEY=eyJ...
+  → file:   echo 'eyJ...' > ~/.config/minimax-image/key && chmod 600 ~/.config/minimax-image/key"
 }
 
 # ---------- arg parsing ----------

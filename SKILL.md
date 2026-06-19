@@ -16,18 +16,53 @@ brew install jq
 
 # Linux (Debian/Ubuntu)
 sudo apt install jq
+```
 
-# 2. Set API key (get it at https://platform.minimax.io/user-center/basic-information/interface-key)
-export MINIMAX_API_KEY="eyJ..."
+## API Key — three ways to provide it
 
-# 3. Verify environment
+Get your key at <https://platform.minimax.io/user-center/basic-information/interface-key>.
+
+The skill searches in this order (highest priority first):
+
+1. **Shell env var** (wins always)
+   ```bash
+   export MINIMAX_API_KEY="eyJ..."
+   ```
+2. **Project-local `.env`** (in CWD — recommended for apps that already use dotenv)
+   ```bash
+   # .env  (add to your project's .gitignore!)
+   MINIMAX_API_KEY=eyJ...
+   ```
+3. **Global `~/.config/minimax-image/.env`** or legacy `key` file
+   ```bash
+   bash ~/.config/opencode/skills/minimax-image/scripts/init_env.sh --global
+   ```
+
+**The helper:**
+```bash
+bash ~/.config/opencode/skills/minimax-image/scripts/init_env.sh             # writes ./.env (chmod 600)
+bash ~/.config/opencode/skills/minimax-image/scripts/init_env.sh --global     # writes ~/.config/minimax-image/.env
+echo "$KEY" | bash .../init_env.sh --from-stdin                                # pipe from password manager, no shell history
+```
+
+**Python usage** (the same `.env` works for any tool that uses `python-dotenv`):
+```python
+from dotenv import load_dotenv
+load_dotenv()  # reads ./.env by default
+import os
+key = os.environ["MINIMAX_API_KEY"]
+```
+
+## Verify
+
+```bash
 bash ~/.config/opencode/skills/minimax-image/scripts/check_env.sh
 ```
 
-The script will:
-- Check `jq` is installed
-- Check `MINIMAX_API_KEY` is set
-- Print the resolved key source (`env` / `~/.config/minimax-image/key`)
+Reports:
+- `jq` / `curl` presence
+- which source the API key was resolved from (and warns if `.env` is not git-ignored)
+- whether the API endpoint is reachable
 
 ## Quick Start
 
@@ -133,8 +168,9 @@ bash scripts/generate.sh --prompt "test" --dry-run
 
 ## Security Notes
 
-- The API key is **never** passed as a CLI argument (visible in `ps`/history). It's injected by the script as a header from `$MINIMAX_API_KEY`.
-- If `MINIMAX_API_KEY` is not set, the script falls back to `~/.config/minimax-image/key` (file mode, `chmod 600`).
+- The API key is **never** passed as a CLI argument (visible in `ps`/history). It's injected by the script as a header from the resolved source.
+- `.env` files written by `init_env.sh` are created with `chmod 600` and must be added to your project's `.gitignore` — `check_env.sh` warns if a project-local `.env` is not git-ignored.
+- The key is never echoed or written to logs. Use `--from-stdin` mode if piping from a password manager.
 - Generated image URLs from `response_format=url` expire after 24 hours. Always pass `--out-dir` for persistent assets.
 
 ## Installation (Global)

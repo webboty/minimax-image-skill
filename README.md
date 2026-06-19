@@ -28,8 +28,14 @@ ln -s ~/Projects/minimax-image ~/.config/opencode/skills/minimax-image
 brew install jq   # macOS
 # sudo apt install jq   # Linux
 
-# 4. Set API key
+# 4. Set the API key (pick one)
+#    a) shell env
 export MINIMAX_API_KEY="eyJ..."
+#    b) project-local .env
+echo 'MINIMAX_API_KEY=eyJ...' > .env && chmod 600 .env
+echo '.env' >> .gitignore
+#    c) global helper
+bash ~/.config/opencode/skills/minimax-image/scripts/init_env.sh --global
 
 # 5. Verify
 bash ~/.config/opencode/skills/minimax-image/scripts/check_env.sh
@@ -48,8 +54,10 @@ See [SKILL.md](./SKILL.md) for the full agent-facing reference.
 .
 ├── SKILL.md               # OpenCode agent contract
 ├── scripts/
-│   ├── check_env.sh       # Validate jq + API key
-│   └── generate.sh        # Main API wrapper
+│   ├── lib_env.sh         # .env loader (sourced by other scripts)
+│   ├── check_env.sh       # Validate jq + API key + .env safety
+│   ├── generate.sh        # Main API wrapper
+│   └── init_env.sh        # Create .env template (chmod 600)
 ├── examples/
 │   └── basic.md           # Usage examples
 ├── LICENSE
@@ -60,9 +68,29 @@ See [SKILL.md](./SKILL.md) for the full agent-facing reference.
 
 The official skill ships 13 sub-skills, requires `npm install -g mmx-cli`, and depends on `ffmpeg` for video. We only need one HTTP endpoint. This skill is ~150 lines of bash, no supply chain, no beta dependencies, and trivially auditable.
 
+## API key resolution
+
+The skill looks for the key in this order (highest first):
+
+1. `$MINIMAX_API_KEY` (shell env var)
+2. `./.env` (current working directory)
+3. `~/.config/minimax-image/.env` (global)
+4. `~/.config/minimax-image/key` (legacy single-value file)
+
+The same `.env` file is consumable by Python via `python-dotenv`:
+
+```python
+from dotenv import load_dotenv
+load_dotenv()
+import os
+key = os.environ["MINIMAX_API_KEY"]
+```
+
 ## Security
 
-- API key is read from `MINIMAX_API_KEY` env var (recommended) or `~/.config/minimax-image/key` with `chmod 600`. **Never** as a CLI argument.
+- API key is **never** accepted as a CLI argument (visible in `ps`/history). Always via env, `.env`, or key file with `chmod 600`.
+- `check_env.sh` warns if a project-local `.env` is not in `.gitignore`.
+- `init_env.sh` writes files with `chmod 600` and supports piping the key from stdin (no shell history).
 - The script logs only the URL, never the key.
 - Generated image URLs from the API expire after 24 hours — use `--out-dir` for persistent storage.
 

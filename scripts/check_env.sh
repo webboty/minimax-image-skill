@@ -4,6 +4,14 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib_env.sh
+source "$SCRIPT_DIR/lib_env.sh"
+
+ENV_SEARCH_PATHS=(
+  "./.env"
+  "$HOME/.config/minimax-image/.env"
+)
 KEY_FILE="${MINIMAX_KEY_FILE:-$HOME/.config/minimax-image/key}"
 API_ENDPOINT="${MINIMAX_API_ENDPOINT:-https://api.minimax.io/v1/image_generation}"
 
@@ -30,23 +38,48 @@ else
   fail "curl missing — install via: brew install curl"
 fi
 
-# 3. API key
+# 3. API key — try to resolve via lib_env
+SOURCE=""
 if [[ -n "${MINIMAX_API_KEY:-}" ]]; then
-  ok "API key resolved from env var MINIMAX_API_KEY (length: ${#MINIMAX_API_KEY})"
-elif [[ -f "$KEY_FILE" ]]; then
-  PERMS=$(stat -f "%Lp" "$KEY_FILE" 2>/dev/null || stat -c "%a" "$KEY_FILE" 2>/dev/null || echo "???")
-  if [[ "$PERMS" == "600" || "$PERMS" == "400" ]]; then
-    ok "API key resolved from $KEY_FILE (perms: $PERMS)"
-  else
-    warn "API key file exists at $KEY_FILE but perms are $PERMS (recommend chmod 600)"
-  fi
+  SOURCE="shell env var MINIMAX_API_KEY (length: ${#MINIMAX_API_KEY})"
 else
-  fail "API key not found
-    → set env:   export MINIMAX_API_KEY=eyJ...
-    → or file:   echo 'eyJ...' > $KEY_FILE && chmod 600 $KEY_FILE"
+  for p in "${ENV_SEARCH_PATHS[@]}"; do
+    if [[ -f "$p" ]] && grep -qE '^[[:space:]]*MINIMAX_API_KEY[[:space:]]*=' "$p"; then
+      SOURCE="$p (.env file)"
+      break
+    fi
+  done
+  if [[ -z "$SOURCE" && -f "$KEY_FILE" ]]; then
+    SOURCE="$KEY_FILE (key file)"
+  fi
 fi
 
-# 4. API reachability (best-effort, no auth needed for this check)
+if [[ -n "$SOURCE" ]]; then
+  ok "API key resolved from: $SOURCE"
+elif ensure_api_key 2>/dev/null; then
+  ok "API key resolved from: $(api_key_source)"
+else
+  fail "API key not found
+    → env:    export MINIMAX_API_KEY=eyJ...
+    → .env:   create ./.env with: MINIMAX_API_KEY=eyJ...
+    → file:   echo 'eyJ...' > $KEY_FILE && chmod 600 $KEY_FILE"
+fi
+
+# 4. .env file presence (informational)
+for p in "${ENV_SEARCH_PATHS[@]}"; do
+  if [[ -f "$p" ]]; then
+    ok ".env found at: $p"
+    if [[ "$p" == "./.env" ]]; then
+      if [[ -f "./.gitignore" ]] && grep -qx '.env' ./.gitignore; then
+        ok "./.env is git-ignored"
+      else
+        warn "./.gitignore does NOT list '.env' — add it to keep your key safe"
+      fi
+    fi
+  fi
+done
+
+# 5. API reachability (best-effort)
 if command -v curl >/dev/null 2>&1; then
   HTTP=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 "$API_ENDPOINT" -X OPTIONS 2>/dev/null || echo "000")
   case "$HTTP" in
@@ -56,15 +89,10 @@ if command -v curl >/dev/null 2>&1; then
   esac
 fi
 
-# 5. Out dir (optional, only warning)
-if [[ -n "${MINIMAX_OUT_DIR:-}" && ! -d "$MINIMAX_OUT_DIR" ]]; then
-  warn "MINIMAX_OUT_DIR=$MINIMAX_OUT_DIR does not exist yet (will be created on first run)"
-fi
-
 echo
 if [[ $FAIL -eq 0 ]]; then
   echo "All required checks passed. Run a dry-run to confirm:"
-  echo "  bash $(dirname "$0")/generate.sh --prompt \"test\" --dry-run"
+  echo "  bash $SCRIPT_DIR/generate.sh --prompt \"test\" --dry-run"
   exit 0
 else
   echo "One or more required checks failed. Fix the issues above."
