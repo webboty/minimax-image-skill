@@ -1,4 +1,4 @@
-# minimax-image-skill
+# minimax-image
 
 Direct HTTP wrapper for the [MiniMax Image-01](https://platform.minimax.io/docs/api-reference/image-generation-t2i) API, packaged as an [OpenCode](https://opencode.ai) agent skill.
 
@@ -18,11 +18,11 @@ Direct HTTP wrapper for the [MiniMax Image-01](https://platform.minimax.io/docs/
 
 ```bash
 # 1. Clone
-git clone https://github.com/webboty/minimax-image-skill.git ~/Projects/minimax-image-skill
+git clone https://github.com/webboty/minimax-image-skill.git ~/Projects/minimax-image
 
 # 2. Symlink into OpenCode's global skills dir
 mkdir -p ~/.config/opencode/skills
-ln -s ~/Projects/minimax-image-skill ~/.config/opencode/skills/minimax-image
+ln -s ~/Projects/minimax-image ~/.config/opencode/skills/minimax-image
 
 # 3. Install jq
 brew install jq   # macOS

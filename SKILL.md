@@ -142,9 +142,9 @@ bash scripts/generate.sh --prompt "test" --dry-run
 This skill lives at `~/.config/opencode/skills/minimax-image/` as a symlink to the repository checkout:
 
 ```bash
-git clone https://github.com/webboty/minimax-image-skill.git ~/Projects/minimax-image-skill
+git clone https://github.com/webboty/minimax-image-skill.git ~/Projects/minimax-image
 mkdir -p ~/.config/opencode/skills
-ln -s ~/Projects/minimax-image-skill ~/.config/opencode/skills/minimax-image
+ln -s ~/Projects/minimax-image ~/.config/opencode/skills/minimax-image
 ```
 
 Restart OpenCode to discover the skill.
