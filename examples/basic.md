@@ -86,3 +86,16 @@ echo "Generated: $URL"
 URL=$(bash scripts/generate.sh --prompt "Abstract painting" --quiet | jq -r '.image_urls[0]')
 # then feed $URL to a vision analysis tool
 ```
+
+## Same character from a reference picture
+
+```bash
+bash ~/.config/opencode/skills/minimax-image/scripts/generate.sh \
+  --prompt "Watercolor storybook: the same man with a straw hat sits on the porch steps, an old black dog asleep at his feet" \
+  --subject-ref ./man-in-rain.jpg \
+  --aspect-ratio 4:3 \
+  --out-dir ./gen --out-prefix porch
+```
+
+→ `gen/porch-0.jpeg` shows the same man. `--subject-ref` also takes a public `https://` URL.
+

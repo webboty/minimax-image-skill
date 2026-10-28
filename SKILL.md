@@ -78,6 +78,13 @@ bash ~/.config/opencode/skills/minimax-image/scripts/generate.sh \
   --n 3 \
   --out-dir ./gen
 
+# Same character as in an existing picture (URL or local file)
+bash ~/.config/opencode/skills/minimax-image/scripts/generate.sh \
+  --prompt "The same man, now in snow, carrying his old dog out of the house" \
+  --subject-ref ./reference/man.jpg \
+  --aspect-ratio 4:3 \
+  --out-dir ./gen
+
 # Deterministic (same seed = same image)
 bash ~/.config/opencode/skills/minimax-image/scripts/generate.sh \
   --prompt "Sunset over mountains" \
@@ -99,6 +106,7 @@ bash ~/.config/opencode/skills/minimax-image/scripts/generate.sh \
 | `--response-format <fmt>` | string | no | `url` (default, expires 24h) or `base64` |
 | `--out-dir <dir>` | path | no | Save images to directory. Filename pattern: `<prefix>-<index>.<ext>` |
 | `--out-prefix <prefix>` | string | no | Filename prefix, default `image` |
+| `--subject-ref <url\|file>` | string | no | Reference picture of a character to keep (same person across images). Public `http(s)` URL, or a local `.jpg/.jpeg/.png/.webp` file under 10 MB (sent as a base64 data URL) |
 | `--quiet` | flag | no | Suppress progress on stderr, stdout = clean data |
 | `--dry-run` | flag | no | Print the JSON request body without calling the API |
 
@@ -165,6 +173,17 @@ done
 # Inspect what the request would look like (debug)
 bash scripts/generate.sh --prompt "test" --dry-run
 ```
+
+## Same character across images (`--subject-ref`)
+
+Pass one picture of the person with `--subject-ref`. The API keeps that character (face, hair, build) in the new image (`subject_reference` with `type: "character"`).
+
+- Accepts a public `http(s)` URL or a local file. A local file is sent inline as a base64 data URL, so it does not need to be online.
+- One reference per call; the API supports only `character` references.
+- The reference pulls the style toward realism. To keep a painted style, name it clearly in the prompt (e.g. "loose hand-painted watercolor on textured paper").
+- Describe the setting you want to keep (house, colors, clothes) in the prompt: the reference holds the person, not the scene.
+- Check every result. Unwanted extra people can appear (e.g. a face in a window); say "no other people" in the prompt.
+- `--dry-run` prints the request with a long data URL shortened.
 
 ## Security Notes
 

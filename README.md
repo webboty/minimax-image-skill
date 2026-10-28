@@ -11,6 +11,7 @@ Direct HTTP wrapper for the [MiniMax Image-01](https://platform.minimax.io/docs/
 - **Custom width/height:** 512–2048 px, divisible by 8
 - **Batch:** up to 9 images per request
 - **Deterministic:** optional `--seed` for reproducible results
+- **Same character:** `--subject-ref <url|file>` keeps a person from a reference picture across images
 - **Auto-save:** `--out-dir` to download URLs (which expire after 24h)
 - **Prompt optimization:** optional `--prompt-optimizer`
 

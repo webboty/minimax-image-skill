@@ -33,6 +33,9 @@ optional:
   --response-format <fmt>      url (default) | base64
   --out-dir <dir>              save images to directory
   --out-prefix <prefix>        filename prefix, default "image"
+  --subject-ref <url|file>     reference picture of a character to keep (same
+                               person/face across images). Public http(s) URL
+                               or a local .jpg/.jpeg/.png/.webp file (< 10 MB)
   --quiet                      suppress progress on stderr
   --dry-run                    print JSON body, do not call API
   -h, --help                   show this help
@@ -67,6 +70,7 @@ OUT_DIR=""
 OUT_PREFIX="image"
 QUIET=0
 DRY_RUN=0
+SUBJECT_REF=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -82,6 +86,7 @@ while [[ $# -gt 0 ]]; do
     --out-prefix)           OUT_PREFIX="$2"; shift 2 ;;
     --quiet)                QUIET=1; shift ;;
     --dry-run)              DRY_RUN=1; shift ;;
+    --subject-ref)          SUBJECT_REF="$2"; shift 2 ;;
     -h|--help)              usage ;;
     *)                      die "unknown flag: $1 (use --help)" ;;
   esac
@@ -104,6 +109,27 @@ if [[ -n "$WIDTH" || -n "$HEIGHT" ]]; then
 fi
 
 # ---------- preflight ----------
+# ---------- subject reference: URL as-is, local file -> base64 data URL ----------
+REF_FILE=""
+if [[ -n "$SUBJECT_REF" ]]; then
+  REF_FILE=$(mktemp)
+  trap 'rm -f "$REF_FILE"' EXIT
+  if [[ "$SUBJECT_REF" =~ ^https?:// || "$SUBJECT_REF" =~ ^data:image/ ]]; then
+    printf '%s' "$SUBJECT_REF" > "$REF_FILE"
+  else
+    [[ -f "$SUBJECT_REF" ]] || die "--subject-ref: not a URL and no such file: $SUBJECT_REF"
+    case "$(echo "${SUBJECT_REF##*.}" | tr '[:upper:]' '[:lower:]')" in
+      jpg|jpeg) REF_MIME="image/jpeg" ;;
+      png)      REF_MIME="image/png" ;;
+      webp)     REF_MIME="image/webp" ;;
+      *) die "--subject-ref: use a .jpg, .jpeg, .png or .webp file" ;;
+    esac
+    REF_SIZE=$(wc -c < "$SUBJECT_REF" | tr -d ' ')
+    [[ "$REF_SIZE" -le 10485760 ]] || die "--subject-ref: file is larger than 10 MB"
+    { printf 'data:%s;base64,' "$REF_MIME"; base64 < "$SUBJECT_REF" | tr -d '\n'; } > "$REF_FILE"
+  fi
+fi
+
 require_cmd curl "brew install curl"
 require_cmd jq "brew install jq"
 resolve_api_key
@@ -119,6 +145,7 @@ PAYLOAD=$(jq -n \
   --argjson seed "${SEED:-null}" \
   --argjson prompt_optimizer "$PROMPT_OPTIMIZER" \
   --arg response_format "$RESPONSE_FORMAT" \
+  --rawfile subject_ref "${REF_FILE:-/dev/null}" \
   '
   {
     model: $model,
@@ -131,10 +158,13 @@ PAYLOAD=$(jq -n \
   + (if $height != null then {height: $height} else {} end)
   + (if $n      != null then {n:      $n}      else {} end)
   + (if $seed   != null then {seed:   $seed}   else {} end)
+  + (if $subject_ref != "" then {subject_reference: [{type: "character", image_file: $subject_ref}]} else {} end)
   ')
+if [[ -n "$REF_FILE" ]]; then rm -f "$REF_FILE"; trap - EXIT; fi
 
 if [[ "$DRY_RUN" == "1" ]]; then
-  echo "$PAYLOAD"
+  # a local file becomes a long base64 string; shorten it in the printout
+  echo "$PAYLOAD" | jq 'if .subject_reference then .subject_reference[0].image_file |= (if startswith("data:") then (.[0:40] + "...(" + (length|tostring) + " chars)") else . end) else . end'
   exit 0
 fi
 
@@ -145,7 +175,7 @@ HTTP_CODE=$(curl -sS -o /tmp/_minimax_resp.$$ -w "%{http_code}" \
   -H "Authorization: Bearer $MINIMAX_API_KEY" \
   -H "Content-Type: application/json" \
   --max-time 120 \
-  -d "$PAYLOAD") || die "curl failed"
+  --data-binary @- <<<"$PAYLOAD") || die "curl failed"
 RESP=$(cat /tmp/_minimax_resp.$$); rm -f /tmp/_minimax_resp.$$
 
 if [[ "$HTTP_CODE" -ne 200 ]]; then
@@ -194,6 +224,7 @@ if [[ -n "$OUT_DIR" && "$RESPONSE_FORMAT" == "url" ]]; then
     out="$OUT_DIR/$OUT_PREFIX-$i.jpeg"
     log "downloading → $out"
     curl -sSL --max-time 120 "$url" -o "$out" || die "download failed: $url"
+    URLS[$i]="$out"
     i=$((i+1))
   done
 fi
